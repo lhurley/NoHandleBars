@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+  <meta charset="utf-8">
+  <title>Mashape Query</title>
+  <script>
+  var lat = "39";
+  var lng = "-94.5";
+  var radius = "250";
+  var webcamKey = "IDYLtEtdQdmsh2rD9PBWxLly0UpCp1zEtGXjsnfamhLDmvifby"
+  var query = `https://webcamstravel.p.mashape.com/webcams/list/nearby=${lat},${lng},${radius}/limit=10?show=webcams:image,location;categories`;
+  // query = `https://webcamstravel.p.mashape.com/webcams/list/nearby=${lat},${lng},${radius}/limit=10?show=categories`;
+  // query = `https://webcamstravel.p.mashape.com/webcams/list?show=webcams:image`;
+  // query = "https://webcamstravel.p.mashape.com/webcams/list/nearby=21,-95,200";
+	function doIt() {
+     var output = $.ajax({
+        url: query, // The URL to the API. You can get this by clicking on "Show CURL example" from an API profile
+        type: 'GET', // The HTTP Method, can be GET POST PUT DELETE etc
+        data: {}, // Additional parameters here
+        dataType: 'json',
+        success: function(data) {
+            //Change data.source to data.something , where something is whichever part of the object you want returned.
+            //To see the whole object you can output it to your browser console using:
+            console.log(data.result);
+           	document.getElementById("output").innerHTML = data.result;
+            var camList = data.result.webcams;
+            $("#output").empty();
+            for (cam in camList) {
+              $("#output").append(`<img src="${camList[cam].image.current.preview}">`);
+            }
+          },
+        error: function(err) { alert(err); },
+        beforeSend: function(xhr) {
+        xhr.setRequestHeader("X-Mashape-Authorization", webcamKey); // Enter here your Mashape key
+        }
+    });
+}
+
+var updateImage = setInterval(doIt, 8000);
+
+
+</script>
+</head>
+<body>
+
+  <button onclick="doIt()">Run the request</button>
+  <div id="output">The API request is:</div>
+
+</body>
+</html>

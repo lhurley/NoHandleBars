@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>No Handlebars API Testing</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        .visualBox {
+            border: thin solid #aaa;
+            padding: 5px;
+            margin: 5px auto;
+        }
+        .inline {
+            display: inline-block;
+            width: 47%;
+        }
+        #soloImage {
+            display: block;
+            width: 600px;
+            margin: 5px auto;
+        }
+        .galleryImage {
+            display: inline-block;
+            width: 250px;
+            margin: 7px;
+        }
+        #weatherButton {
+            display: block;
+            padding: 15px;
+            font-size: 24px;
+            font-weight: 800;
+            margin: 2px auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="visualBox inline">
+        <h1>Ritmo</h1>
+        <form>
+            <p>Use this to navigate around the globe. Only works when the dropdown menu is set to "Search a new location".</p>
+            <label>Latitude:
+                <input type="number" name="lat" id="latIn">
+            </label>
+            <label>Longitude:
+                <input type="number" name="long" id="longIn">
+            </label>
+        </form>
+        <form>
+            <p>This stores webcam locations when you click on an image. It does not persist across page refreshes yet. I can add that if you think it would be useful. I should also add some more output information to make it easier to store favorites for building our site, maybe.</p>
+            <select id="bookmarkList">
+                <option value="search">Search a new location</option>
+            </select>
+        </form>
+    </div>
+    <div class="visualBox inline">
+        <h2>Click the "get weather" button to make the magic happen!</h2>
+        <p>When "Search a new location" is selected in dropdown list, this either guesses user's location based on IP address or uses the number input fields for latitude and longitude information. Three images are displayed to click on to save if the user likes any, and the weather and sound info matches the given or guessed location.</p>
+        <p>When any other dropdown menu item is selected, this button displays that single saved webcam shot and sets all weather and sound information to match the displayed image as best it can.</p>
+        <button id="weatherButton">get weather</button>
+    </div>
+    <div class="visualBox">
+        <h3>A bunch of data is shown below. Information overload!</h3>
+        <div>Location: <span id="location"></span></div>
+        <div>Lat: <span id="lat"></span> |-----| Long: <span id="lng"></span></div>
+        <div>Timezone: <span id="timezone"></span></div>
+        <div>Time: <span id="time"></span></div>
+        <div>Weather: <span id="weatherText"></span></div>
+        <div id="weatherNumbers">
+            Wind Speed: <span id="wind"></span> |-----| Clouds: <span id="clouds"></span> |-----| Precipitation: <span id="precip"></span> |-----| Temperature: <span id="temp"></span>
+        </div>
+    </div>
+    <form class="visualBox" id="soundControls" style="display: none;">
+        <h3>This controls ALL OF THE SOUND ON THE PAGE AT ONCE.</h3>
+        <button id="play"><i class="material-icons">play_arrow</i></button>
+        <button id="pause" style="display: none;"><i class="material-icons">pause</i></button>
+        <i class="material-icons">volume_mute</i>
+        <input type="range" value="10" name="volume" id="volume" min="0" max="10"><i class="material-icons">volume_up</i>
+    </form>
+    <!--
+    <audio controls>
+        <source src="soundbible-meadowlark_daniel-simion.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    -->
+    <div class="visualBox" id="audioBox">
+        <p>These can all be hidden and functionality shouldn't change. For playing with sound balance, it is useful to have the controls set to "on", but in the final version the user won't see this.</p>
+    </div>
+    <div class="visualBox" id="webcamBox">
+        <p>Webcam images go here.</p>
+    </div>
+    <!-- include jquery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+    <!-- include moment.js and moment-timezone.js for time detection of "pretend" locations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.13/moment-timezone-with-data.min.js"></script>
+    <script type="text/javascript">
+    function getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
+    }
+    $("#webcamBox").on("click", "img", function() {
+        var locationID = $(this).data("id");
+        var locationTitle = $(this).data("title");
+        var locationLat = $(this).data("lat");
+        var locationLng = $(this).data("lng");
+        console.log([locationID, locationTitle]);
+        $("#bookmarkList").append(`<option data-id="${locationID}" data-lat="${locationLat}" data-lng="${locationLng}" value="${locationID}">${locationTitle}</option>`);
+    });
+    function locationCheck() {
+        var latitude, longitude;
+        if ($("#bookmarkList").val() === "search" || $("#bookmarkList").val() === "") {
+            // read from text inputs first
+            latitude = $("#latIn").val() ? $("#latIn").val().trim() : "";
+            longitude = $("#longIn").val() ? $("#longIn").val().trim() : "";
+            // then do auto query if those are empty
+        } else {
+            // read lat and long from bookmark list option
+            latitude = $("#bookmarkList option:selected").data("lat");
+            longitude = $("#bookmarkList option:selected").data("lng");
+            console.log([latitude, longitude]);
+        }
+        return {lat: latitude, lng: longitude, };
+    }
+    var locationType = "nature"; // values: water, traffic, nature, people
+    // webcam code
+    function webcamUpdate(lat, lng) {
+        /*
+        var place = locationCheck();
+        var lat = place.lat;
+        var lng = place.lng;
+        */
+        console.log([lat, lng]);
+        var radius = "300";
+        var webcamKey = "IDYLtEtdQdmsh2rD9PBWxLly0UpCp1zEtGXjsnfamhLDmvifby"
+        var query = `https://webcamstravel.p.mashape.com/webcams/list/nearby=${lat},${lng},${radius}/limit=3?show=webcams:image,location`;
+        // var bookmark = "1170342727";
+        if ($("#bookmarkList option:selected").val() !== "search" && $("#bookmarkList option:selected").val() !== "") {
+            var bookmark = $("#bookmarkList").val();
+            query = `https://webcamstravel.p.mashape.com/webcams/list/webcam=${bookmark}?show=webcams:image,location;categories`;
+        }
+        // var bookmarkedCams = `https://webcamstravel.p.mashape.com/webcams/list/webcam=${bookmark}?show=webcams:image,location;categories`
+        var output = $.ajax({
+            url: query, // The URL to the API. You can get this by clicking on "Show CURL example" from an API profile
+            type: 'GET', // The HTTP Method, can be GET POST PUT DELETE etc
+            // data: {}, // Additional parameters here
+            dataType: 'json',
+            success: function(data) {
+                //Change data.source to data.something , where something is whichever part of the object you want returned.
+                //To see the whole object you can output it to your browser console using:
+                console.log(data);
+                var camList = data.result.webcams;
+                if (data.result.categories) {
+                    var imageType = data.result.categories[0].id;
+                    console.log(imageType);
+                    var imageTitle = camList[0].title.toLowerCase();
+                    if (imageType === "beach"
+                        || imageType === "bay"
+                        || imageType === "coast"
+                        || imageType === "harbor"
+                        || imageType === "lake"
+                        || imageType === "water"
+                        || imageType === "underwater"
+                        || imageTitle.includes("beach")
+                        || imageTitle.includes("lake")
+                        || imageTitle.includes("river")) {
+                        locationType = "water";
+                    }else if (imageType === "traffic"
+                        || imageTitle.includes("street")
+                        || imageTitle.includes("road")
+                        || imageTitle.includes("highway")) {
+                        locationType = "traffic";
+                    }else if (imageType === "building"
+                        || imageType === "xmasmarket"
+                        || imageType === "city"
+                        || imageType === "indoor"
+                        || imageType === "square") {
+                        locationType = "people";
+                    } else {
+                        locationType = "nature";
+                    }
+                }
+                $("#webcamBox").empty();
+                for (cam in camList) {
+                    // console.log(data.result.categories[0]);
+                    // console.log(camList[cam].id);
+                    var imageClass = "";
+                    var imageID = "";
+                    if (data.result.categories) {
+                        imageID = "soloImage";
+                    } else {
+                        imageClass = "galleryImage";
+                    }
+                  $("#webcamBox").append(`<img width="600" src="${camList[cam].image.current.preview}" class="${imageClass}" id="${imageID}" data-id="${camList[cam].id}" data-lat="${camList[cam].location.latitude}" data-lng="${camList[cam].location.longitude}" data-title="${camList[cam].title}">`);
+                }
+            },
+            error: function(err) { alert(err); },
+            beforeSend: function(xhr) {
+            xhr.setRequestHeader("X-Mashape-Authorization", webcamKey); // Enter here your Mashape key
+            }
+        });
+    }
+    /*
+    if ($("#lat").text() !== "" && $("#lng").text() !== "") {
+        var updateImage = setInterval(webcamUpdate, 8000);
+    }
+    */
+
+    // use this to clear interval on the setInterval function later
+    var timeOfDaySound, locationSound;
+    function occasionalSounds() {
+        var now = new Date();
+        hourOfDay = parseInt(moment.tz(now, $("#timezone").text()).format('HH'));
+        // console.log("The hour is: " + hourOfDay);
+        var sourceList = [];
+        var soundFile = "";
+        // time of day tied to local time
+        // birds occasionally in morning, crickets in evening, owls at night
+        if (hourOfDay > 6 && hourOfDay < 12) {
+            // morning bird
+            soundFile = "soundbible-meadowlark_daniel-simion.mp3";
+        }
+        if (hourOfDay > 11 && hourOfDay < 17) {
+            // afternoon cricket
+            soundFile = "soundbible-2083-Crickets-Chirping-At-Night.mp3";
+        }
+        if (hourOfDay > 16 || hourOfDay < 7) {
+            // night owl
+            soundFile = "soundbible-1851-Horned-Owl.mp3";
+        }
+        sourceList.push({ src: soundFile, volume: 2, type: "time", });
+        if (locationType === "water") {
+            sourceList.push({ src: "soundbible-2032-Water.mp3",
+                volume: 2, type: "location", });
+        }
+        if (locationType === "people") {
+            sourceList.push({ src: "soundbible-2163-Party-Crowd.mp3",
+                volume: 1, type: "location", });
+        }
+        if (locationType === "traffic") {
+            sourceList.push({ src: "soundbible-2175-street-daniel_simon.mp3",
+                volume: 2, type: "location", });
+        }
+        if (locationType === "nature") {
+            sourceList.push({ src: "soundbible-895-Rustle.mp3",
+                volume: 1, type: "location", });
+        }
+        console.log(sourceList);
+        return sourceList;
+    }
+
+    function pickCorrectWeatherSound() {
+        var sourceList = [];
+        var wind = Number($("#wind").text());
+        wind = wind ? wind : 0;
+        var precip = 0;
+        if (!isNaN($("#precip").text())) {
+            precip = Number($("#precip").text());
+        }
+        var temp = parseInt($("#temp").text());
+        // rain is either true or false
+        var rain = (precip > 0 && temp > 2) ? true : false;
+        var soundFile = "";
+        var windFile = "soundbible-1247-wind.mp3";
+        var rainFile = "soundbible-1999-Rain.mp3";
+        // wind and rain tied to weather API
+        // none, light, heavy as options
+        if (wind < 3 && rain && precip > 0) {
+            // light wind, rain
+            sourceList.push({ src: windFile, volume: 6, type: "wind", });
+            sourceList.push({ src: rainFile, volume: 9, type: "rain", });
+        } else if (wind < 3 && !rain && precip < 5) {
+            // light wind, no rain
+            sourceList.push({ src: windFile, volume: 6, type: "wind", });
+        } else if (wind >= 3 && wind <= 7 && !rain && precip < 5) {
+            // medium wind, no rain
+            sourceList.push({ src: windFile, volume: 8, type: "wind", });
+        } else if (wind > 7 && !rain && precip < 5) {
+            // high wind, no rain
+            sourceList.push({ src: windFile, volume: 10, type: "wind", });
+        } else if (wind >= 3 && wind <= 7 && rain && precip > 0) {
+            // medium wind, rain
+            sourceList.push({ src: windFile, volume: 8, type: "wind", });
+            sourceList.push({ src: rainFile, volume: 9, type: "rain", });
+        } else if (wind > 7 && rain && precip > 0) {
+            // high wind, rain
+            sourceList.push({ src: windFile, volume: 10, type: "wind", });
+            sourceList.push({ src: rainFile, volume: 9, type: "rain", });
+        }
+        // console.log(sourceList);
+        if (sourceList.length > 0) {
+            $("#soundControls").show();
+        } else {
+            $("#soundControls").hide();
+            console.log("There is an error with the sound!!!");
+        }
+        return sourceList;
+    }
+
+    function createAudioElement(sound) {
+        var audio = $(`<audio controls class="globalAudio" id="audio-${sound.type}" data-volume="${sound.volume/10}"></audio>`);
+        audio.append(`<source src="${sound.src}">`)
+            .append(`Your browser does not support the audio element.`);
+        $("#audioBox").append(audio);
+        // console.log(sound.volume);
+        audio[0].volume = sound.volume / 10;
+        return audio;
+    }
+
+    function playTimeOfDaySound() {
+        timeOfDaySound = setInterval( function () {
+            $("#audio-time").remove();
+            var audio = createAudioElement( occasionalSounds()[0] );
+            $("#audio-time")[0].play();
+        }, getRandomInt(3, 5)*10000);
+        return timeOfDaySound;
+    }
+
+    function playLocationSound() {
+        locationSound = setInterval( function () {
+            $("#audio-location").remove();
+            var audio = createAudioElement( occasionalSounds()[1] );
+            $("#audio-location")[0].play();
+        }, getRandomInt(3, 5)*4000);
+        return locationSound;
+    }
+
+    $("#weatherButton").on("click", function(event) {
+        event.preventDefault();
+        clearInterval(timeOfDaySound);
+
+        var place = locationCheck();
+        var lat = place.lat;
+        var long = place.lng;
+
+        var weatherbitioKey = "77c0d0ff1ca4494298f2d5a4934fe8dc";
+        // Storing our url
+        var queryAuto = `https://api.weatherbit.io/v1.0/current/ip?ip=auto&key=${weatherbitioKey}`;
+        var queryLatLong = `https://api.weatherbit.io/v1.0/current?lat=${lat}&lon=${long}&key=${weatherbitioKey}`;
+        // Perfoming an AJAX GET request to our queryURL
+        $.ajax({
+                url: (lat && long) ? queryLatLong : queryAuto,
+                method: "GET"
+            })
+            // After the data from the AJAX request comes back
+            .done(function(response) {
+                var data = response.data[0];
+                console.log(data);
+                var stateCode = isNaN(data.state_code) ? data.state_code + ", " : "";
+                var location = data.city_name + ", " + stateCode + data.country_code;
+                $("#location").text(location);
+                var weatherText = data.weather.description;
+                $("#weatherText").text(weatherText);
+                var temp = data.temp;
+                $("#temp").text(temp);
+                var wind = data.wind_spd;
+                $("#wind").text(wind);
+                var clouds = data.clouds;
+                $("#clouds").text(clouds);
+                var precip = data.precip;
+                $("#precip").text(precip);
+                var timezone = data.timezone;
+                $("#timezone").text(timezone);
+                var responseLat = data.lat;
+                $("#lat").text(responseLat);
+                var responseLng = data.lon;
+                $("#lng").text(responseLng);
+                var soundSrc = pickCorrectWeatherSound();
+                $("#audioBox").empty();
+                for (sound of soundSrc) {
+                    var audio = createAudioElement(sound);
+                    audio[0].loop = true;
+                }
+                var now = new Date();
+                var time = moment.tz(now, data.timezone).format("H:mm a");
+                $("#time").text(time);
+                webcamUpdate(responseLat, responseLng);
+            });
+    });
+    $("#play").on("click", function(event) {
+        event.preventDefault();
+        // code
+        $(".globalAudio").each(function() {
+            this.play();
+        });
+        clearInterval(timeOfDaySound);
+        clearInterval(locationSound);
+        // set a timer to play time-of-day sounds occasionally
+        playTimeOfDaySound();
+        playLocationSound();
+        $("#play").hide();
+        $("#pause").show();
+    });
+    $("#pause").on("click", function(event) {
+        event.preventDefault();
+        // code
+        $(".globalAudio").each(function() {
+            this.pause();
+        });
+        clearInterval(timeOfDaySound);
+        clearInterval(locationSound);
+        $("#play").show();
+        $("#pause").hide();
+    });
+    $("#volume").on("click", function(event) {
+        event.preventDefault();
+        // code
+        var inputVolume = parseInt($(this).val());
+        console.log("You set the volume to " + inputVolume);
+        $(".globalAudio").each(function() {
+            this.volume = (inputVolume / 10) * $(this).data("volume");
+        });
+    });
+    </script>
+</body>
+
+</html>

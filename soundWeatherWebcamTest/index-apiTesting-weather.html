@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>No Handlebars API Testing</title>
+</head>
+
+<body>
+	<form>
+		<label>Latitude: <input type="number" name="lat" id="latIn"></label>
+    <label>Longitude: <input type="number" name="long" id="longIn"></label>
+	</form>
+  <button id="weatherButton">get weather</button>
+  <div>Location: <span id="location"></span></div>
+  <div>Weather: <span id="weatherText"></span></div>
+  <div id="weatherNumbers">
+    Wind Speed: <span id="wind"></span> |-----|
+    Clouds: <span id="clouds"></span> |-----|
+    Precipitation: <span id="precip"></span> |-----|
+    Temperature: <span id="temp"></span>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <script type="text/javascript">
+    // Event listener for our cat-button
+    $("#weatherButton").on("click", function(event) {
+    	event.preventDefault();
+    	var lat = $("#latIn").val().trim();
+      // lat = "48.856930";
+      var long = $("#longIn").val().trim();
+      // long = "2.341200";
+      var weatherbitioKey = "77c0d0ff1ca4494298f2d5a4934fe8dc";
+      // Storing our url
+      var queryAuto = `https://api.weatherbit.io/v1.0/current/ip?ip=auto&key=${weatherbitioKey}`;
+      var queryLatLong = `https://api.weatherbit.io/v1.0/current?lat=${lat}&lon=${long}&key=${weatherbitioKey}`;
+      // Perfoming an AJAX GET request to our queryURL
+      $.ajax({
+        url: (lat && long) ? queryLatLong : queryAuto,
+        method: "GET"
+      })
+      // After the data from the AJAX request comes back
+      .done(function(response) {
+        var data = response.data[0];
+      	console.log(response.data[0]);
+        console.log(response.data[0].city_name);
+        console.log(response.data[0].state_code);
+        console.log(response.data[0].wind_spd);
+        console.log(response.data[0].weather.description);
+        console.log(response.data[0].precip);
+        console.log(response.data[0].clouds);
+        console.log(response.data[0].temp);
+        var stateCode = isNaN(data.state_code) ? data.state_code + ", " : "";
+        var location = data.city_name + ", " + stateCode + data.country_code;
+        $("#location").text(location);
+        var weatherText = data.weather.description;
+        $("#weatherText").text(weatherText);
+        var temp = data.temp;
+        $("#temp").text(temp);
+        var wind = data.wind_spd;
+        $("#wind").text(wind);
+        var clouds = data.clouds;
+        $("#clouds").text(clouds);
+        var precip = data.precip;
+        $("#precip").text(precip);
+      });
+    });
+  </script>
+</body>
+
+</html>
